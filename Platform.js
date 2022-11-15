@@ -273,6 +273,7 @@ Entity.prototype.kill = function(){
 			}
 		}
 	}
+  this.RAM = [];
 	this.currentSpeed = 0;
 	this.hasFlag = false;
 	this.alive = false;
