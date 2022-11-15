@@ -2,10 +2,9 @@
 RIGHTCLICK && LEFTCLICK TO CHANGE FOCUS
 MIDDLECLICK TO TOGGLE PERSPECTIVE
 SCROLL TO ZOOM IN/OUT
-
+D TO TOGGLE DEBUG
  * Ctrl+F : "@HERE" to go to the area with the algorithms
 *//**Algorithm Challenge: Capture the Flag
-
 @RULES:
 You are allowed to read from ALL properties of Entity.
 You are allowed to read from ALL global variables except for "entities"
@@ -17,12 +16,9 @@ You are NOT allowed to set/modify variables outside (this) Entity.
 You are NOT allowed to draw to canvas.
 You are NOT allowed set/modify properties of Entity other than 'RAM'.
 You are NOT allowed use functions other than 'Math' and properties of (this) Entity.
-
 Note: You can either create and use properties of Entity.RAM or create and use variables of your own.
-
 @INSTRUCTIONS:
 Design an algorithm that multiple entities (a team) will operate under to capture the opponent's flag.
-
  */
 
 
@@ -36,6 +32,7 @@ smooth();
 
 var camX = 0, camY = 0, camX2 = 0, camY2 = 0, camS = 1, camS2 = 1, camV = 7, camF = 0;
 var IDs = 0;
+var popups = [], Popup;
 
 var M1 = 10; //speed of "sound" in px
 var fhr = 120; //flag house radius
@@ -46,7 +43,7 @@ var jailY = 1250; // more specifically, y pos from border
 
 var entities = [];
 var names = ["red", "blue", "green", "gray", "yellow", "purple", "orange"];
-var pts = [0, 0];
+var pts = [];
 var flagID = [];
 
 var teamAid = 0;
@@ -301,7 +298,11 @@ Entity.prototype.process = function(){
 			if(this.hasFlag){
 				this.hasFlag = false;
 				pts[this.teamWith] ++;
-				entities[this.flagInfo].isFlag = true;
+				
+                // why kapjs... why would you use this weird x-FFFFFF format
+                var adj = colors[this.alignment] + 0xFFFFFF;
+                popups.push(new Popup(names[this.teamWith].toUpperCase() + " SCORES", ~~(adj/65536), ~~(adj/256)%256, adj%256+1, 80, 300));
+                entities[this.flagInfo].isFlag = true;
 			}
 		}else{
 			for(var $ = 0; $ < entities.length; $ ++){
@@ -475,32 +476,22 @@ for(var i = 0; i <= 400; i += 50){
 
 var bg = bkgd.get();
 
-/*entities.push(new Entity(1000, 1000, 4));
- entities[0].hasFlag = true;
- var j = 1;
- var k = 5;
- for(var i = 0; i < 9; i ++){
- var id = j + (k-j)*(i%2);
- entities.push(new Entity(100, 800+i*50, id));
- entities.push(new Entity(1900, 800+i*50, id));
- entities.push(new Entity(800+i*50, 100, id));
- entities.push(new Entity(800+i*50, 1900, id));
- }*/
-
 (function() {
-	var x = ~~random(2, 8) * 125;
-	var y = ~~random(1, 4) * 250;
-	entities.push(new Entity(1000-x, y, teamAid, true));
-	entities.push(new Entity(1000+x, y, teamAid, true));
-	entities.push(new Entity(1000-x, 4000-y, teamBid, true));
-	entities.push(new Entity(1000+x, 4000-y, teamBid, true));
+    var x = ~~random(2, 6) * 125;
+    var y = ~~random(2, 4) * 250;
+    entities.push(new Entity(1000-x, y, teamAid, true));
+    entities.push(new Entity(1000+x, y, teamAid, true));
+    entities.push(new Entity(1000-x, 4000-y, teamBid, true));
+    entities.push(new Entity(1000+x, 4000-y, teamBid, true));
 }());
 
+pts[teamAid] = 0;
+pts[teamBid] = 0;
 for(var i = 0; i < 30; i ++){
-	entities.push(new Entity(65*i, 1000, 0));
+    entities.push(new Entity(65*i, 1000, teamAid));
 }
 for(var i = 0; i < 30; i ++){
-	entities.push(new Entity(65*i, 3000, 1));
+    entities.push(new Entity(65*i, 3000, teamBid));
 }
 
 var iso = function(){
@@ -520,6 +511,29 @@ iso.prototype.apply = function(){
 	this.t += (this.active - this.t) / 17;
 };
 var spaceISO = new iso();
+var debugInfo = false;
+var dT = 0; //debug transition (value)
+
+var Popup = function(txt, r, g, b, tS, ypos){
+    this.txt = txt;
+    this.y = ypos;
+    this.tS = tS;
+    this.r = r;
+    this.g = g;
+    this.b = b;
+    this.f = 0;
+};
+Popup.prototype.draw = function(){
+    this.f += 0.5;
+    stroke(0, 0, 0, 200 - (this.f > 20 ? this.f*5 : 140));
+    fill(255, 255, 255, 200 - (this.f > 20 ? this.f*5 : 140));
+    rect(300, this.y, 700, this.tS + pow(this.f-20, 2) * ((this.f > 20)*0.4 + 0.1));
+    textSize(this.tS);
+    fill(this.r, this.g, this.b, 255 -abs(this.f - 20) * 10);
+    text(this.txt, this.f > 20 ? 300+pow(this.f-20, 1.7) : this.f*this.f-100, this.y);
+    //                                     this.f-22 = 2f flash
+    return this.f > 50;
+};
 
 var mouseScrolled = function() {
 	//jshint noarg: false
@@ -544,6 +558,10 @@ var mousePressed = function(){
 	}
 	camS2 = camF === entities.length ? 0.3 : 1;
 };
+var keyPressed = function(){
+    debugInfo = keyCode === 68 ? !debugInfo : debugInfo;
+};
+keyReleased = function(){};
 var draw = function() {
 	spaceISO.apply();
 
@@ -593,4 +611,7 @@ var draw = function() {
 	fill(colors[teamBid]);
 	text(pts[teamBid], 350, 50);
 	fElapsed ++;
+    for(var i = 0; i < popups.length; i ++){
+        popups.splice(i, popups[i].draw());
+    }
 };
